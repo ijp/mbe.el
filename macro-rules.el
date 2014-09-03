@@ -187,8 +187,7 @@
     `(catch 'bad-match
        ,(mbe-compile-pattern-match pattern
                                    var
-                                   (list (mbe-compile-template template levels))
-                                   ))))
+                                   (list (mbe-compile-template template levels))))))
 
 (defun mbe-make-rule* (var pattern template)
   (let ((levels (mbe-levels pattern)))
@@ -212,9 +211,61 @@
     `(let ((,value ,val))
        ,(mbe-make-rule value pattern body))))
 
+
+(defun mbe-make-defrule (var pattern template on-success)
+  (let ((levels (mbe-levels pattern)))
+    `(catch 'bad-match
+       ,(mbe-compile-pattern-match pattern
+                                   var
+                                   (list `(throw ',on-success
+                                                 (cons 'progn
+                                                       ,(mbe-compile-template template levels))))))))
+
 (mbe-destructuring-let*
   (((var val) ...) body ...) '(((a 1) (b 2)) (+ a b))
   (funcall (lambda (var ...) body ...) val ...)) ;; (funcall (lambda (a b) (+ a b)) 1 2)
+
+(defmacro defrule (name pattern template)
+  `(defrules ,name (,pattern ,template)))
+
+(defmacro defrules (name &rest rest)
+  (let ((rest*   (gensym 'rest))
+        (success (gensym 'success)))
+    `(defmacro ,name (&rest ,rest*)
+       (catch ',success
+         ,@(mapcar (lambda (clause)
+                     (let ((pattern  (car clause))
+                           (template (cdr clause)))
+                       (mbe-make-defrule rest*
+                                         pattern
+                                         template
+                                         success)))
+                   rest)
+         (error "No matching pattern for defrule" name rest)))))
+
+(defrule mylet (((var val) ...) body ...)
+  (funcall (lambda (var ...) body ...) val ...))
+
+;; (macroexpand '(mylet ((a 1) (b 2)) (+ b b a)))
+;; (mylet ((a 1) (b 2)) (+ b b a))
+
+(defrule mylet* (((var val) ...) body ...)
+  (mylet*-helper (var ...) (val ...) (body ...)))
+
+(defrules mylet*-helper
+  ((nil nil body) (progn . body))
+  (((var . vars) (val . vals) body)
+   (let ((var val))
+     (mylet*-helper vars vals body))))
+
+(mylet* ((a 1)
+         (b 2)
+         (c 3)
+         (tmp a)
+         (a b)
+         (b c)
+         (c tmp))
+        (list a b c))
 
 (provide 'macro-rules)
 ;;; macro-rules.el ends here
