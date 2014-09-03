@@ -130,27 +130,6 @@
          ,(mbe-compile-pattern-match pattern value body)))))
 
 
-(mbe-destructuring-let
- (a b)
- (list 1 2)
- (list a b)) ; (1 2)
-
-(mbe-destructuring-let
- (a b ...)
- (list 1 2 3 4 5)
- (list a b)) ; (1 (2 3 4 5))
-
-(mbe-destructuring-let
- ((a b) ...)
- `((a 1) (b 2) (c 3))
- (list a b)) ; ((a b c) (1 2 3))
-
-
-(mbe-destructuring-let
- ((a b ...) ...)
- `((a 1 "alpha" "beta") (b 2) (c 3 "gamma"))
- (list a b)) ; ((a b c) ((1 "alpha" "beta") (2) (3 "gamma")))
-
 (defun mbe-constrain-levels (levels form)
   (let ((vars (mbe-pattern-variables form)))
     (mapcar #'mbe-adjust-level
@@ -193,24 +172,10 @@
   (let ((levels (mbe-levels pattern)))
     (mbe-compile-template template levels)))
 
-;; (mbe-levels '(((var val) ...) body ...))
-;; (mbe-compile-template '(body ...) '((var . 1) (val . 1) (body . 1)))
-
-;; (mbe-make-rule* 'XXX '(((var val) ...) body ...) '(body ...))
-;; (mbe-make-rule* 'XXX '(((var val) ...) body ...) '((body body) ...))
-;; (mbe-make-rule* 'XXX '(((var val) ...) body ...) '((body 3) ...))
-;; (mbe-make-rule* 'XXX '(((var val) ...) body ...)
-;;                 '(lambda (var ...) body ...))
-;; (mbe-make-rule*
-;;  'XXXX
-;;  '(((var val) ...) body ...)
-;;  '(funcall (lambda (var ...) body ...) val ...))
-
 (defmacro mbe-destructuring-let* (pattern val body)
   (let ((value (gensym)))
     `(let ((,value ,val))
        ,(mbe-make-rule value pattern body))))
-
 
 (defun mbe-make-defrule (var pattern template on-success)
   (let ((levels (mbe-levels pattern)))
@@ -220,10 +185,6 @@
                                    (list `(throw ',on-success
                                                  (cons 'progn
                                                        ,(mbe-compile-template template levels))))))))
-
-(mbe-destructuring-let*
-  (((var val) ...) body ...) '(((a 1) (b 2)) (+ a b))
-  (funcall (lambda (var ...) body ...) val ...)) ;; (funcall (lambda (a b) (+ a b)) 1 2)
 
 (defmacro defrule (name pattern template)
   `(defrules ,name (,pattern ,template)))
@@ -242,30 +203,6 @@
                                          success)))
                    rest)
          (error "No matching pattern for defrule" name rest)))))
-
-(defrule mylet (((var val) ...) body ...)
-  (funcall (lambda (var ...) body ...) val ...))
-
-;; (macroexpand '(mylet ((a 1) (b 2)) (+ b b a)))
-;; (mylet ((a 1) (b 2)) (+ b b a))
-
-(defrule mylet* (((var val) ...) body ...)
-  (mylet*-helper (var ...) (val ...) (body ...)))
-
-(defrules mylet*-helper
-  ((nil nil body) (progn . body))
-  (((var . vars) (val . vals) body)
-   (let ((var val))
-     (mylet*-helper vars vals body))))
-
-(mylet* ((a 1)
-         (b 2)
-         (c 3)
-         (tmp a)
-         (a b)
-         (b c)
-         (c tmp))
-        (list a b c))
 
 (provide 'macro-rules)
 ;;; macro-rules.el ends here
