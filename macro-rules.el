@@ -157,30 +157,14 @@
     ((pred mbe-self-evaluating-p) pattern)
     (_ (throw 'bad-pattern pattern))))
 
-(defun mbe-make-rule (var pattern template)
-  (let ((levels (mbe-levels pattern)))
-    `(catch 'bad-match
-       ,(mbe-compile-pattern-match pattern
-                                   var
-                                   (list (mbe-compile-template template levels))))))
-
-(defun mbe-make-rule* (var pattern template)
-  (let ((levels (mbe-levels pattern)))
-    (mbe-compile-template template levels)))
-
-(defmacro mbe-destructuring-let* (pattern val body)
-  (let ((value (gensym)))
-    `(let ((,value ,val))
-       ,(mbe-make-rule value pattern body))))
-
 (defun mbe-make-defrule (var pattern template on-success)
   (let ((levels (mbe-levels pattern)))
     `(catch 'bad-match
-       ,(mbe-compile-pattern-match pattern
-                                   var
-                                   (list `(throw ',on-success
-                                                 (cons 'progn
-                                                       ,(mbe-compile-template template levels))))))))
+       ,(mbe-compile-pattern-match
+         pattern
+         var
+         (list `(throw ',on-success
+                       (cons 'progn ,(mbe-compile-template template levels))))))))
 
 (defmacro defrule (name pattern template)
   `(defrules ,name (,pattern ,template)))
