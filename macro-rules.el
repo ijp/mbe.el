@@ -83,15 +83,11 @@
      ,(mbe-compile-pattern-match* pattern match-var)
      ,@body))
 
-(defun bad-match ()
-  (message "bad match")
-  (throw 'bad-match nil))
-
 (defun mbe-compile-pattern-match* (pattern match-var)
   (pcase pattern
     (`(,p ,(pred mbe-ellipsis-p))
      `(progn
-        (unless (listp ,match-var) (bad-match))
+        (unless (listp ,match-var) (throw 'bad-match nil))
         (while ,match-var
           ,(let* ((mvar  (gensym match-var))
                   (pvars (mbe-pattern-variables p))
@@ -106,7 +102,7 @@
                 (setq ,match-var (cdr ,match-var)))))))
     (`(,a . ,d)
      `(progn
-        (unless (consp ,match-var) (bad-match))
+        (unless (consp ,match-var) (throw 'bad-match nil))
         ,(let ((m1 (gensym match-var))
                (m2 (gensym match-var)))
            `(let ((,m1 (car ,match-var))
@@ -114,12 +110,12 @@
               ,(mbe-compile-pattern-match* a m1)
               ,(mbe-compile-pattern-match* d m2)))))
     (`()
-     `(when ,match-var (bad-match)))
+     `(when ,match-var (throw 'bad-match nil)))
     ((pred symbolp)
      `(setq ,pattern ,match-var))
     ((pred mbe-self-evaluating-p)
      ;; TODO: make equality configurable?
-     `(unless (equal ,match-var ,pattern) (bad-match)))
+     `(unless (equal ,match-var ,pattern) (throw 'bad-match nil)))
     (_ (throw 'bad-pattern pattern))))
 
 
