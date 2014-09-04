@@ -86,8 +86,8 @@
 (defun mbe-compile-pattern-match* (pattern match-var)
   (pcase pattern
     (`(,p ,(pred mbe-ellipsis-p))
-     `(progn
-        (unless (listp ,match-var) (throw 'bad-match nil))
+     `(if (not (listp ,match-var))
+          (throw 'bad-match nil)
         (while ,match-var
           ,(let* ((mvar  (gensym match-var))
                   (pvars (mbe-pattern-variables p))
@@ -101,8 +101,8 @@
                           pvars gensyms)
                 (setq ,match-var (cdr ,match-var)))))))
     (`(,a . ,d)
-     `(progn
-        (unless (consp ,match-var) (throw 'bad-match nil))
+     `(if (not (consp ,match-var))
+          (throw 'bad-match nil)
         ,(let ((m1 (gensym match-var))
                (m2 (gensym match-var)))
            `(let ((,m1 (car ,match-var))
