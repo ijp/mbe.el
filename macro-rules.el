@@ -25,6 +25,8 @@
 ;;   (<pattern> ...)
 ;;   (<pattern> <pattern> ... . <pattern>)
 ;;   (<pattern> ... <pattern> <ellipsis>)
+;;   (<pattern> ... <ellipsis> <pattern> ...)
+
 
 ;;; Code:
 (require 'cl-lib)
@@ -43,13 +45,21 @@
 
 (defun mbe-pattern-p (sexp)
   (pcase sexp
-    (`(,p ,(pred mbe-ellipsis-p))
-     (mbe-pattern-p p))
+    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
+     (and (mbe-pattern-p p)
+          (mbe-tail-pattern-p rest)))
     (`(,a . ,d)
      (and (mbe-pattern-p a) (mbe-pattern-p d)))
     ((pred symbolp) t)
     ((pred mbe-self-evaluating-p) t)
     (_ nil)))
+
+(defun mbe-tail-pattern-p (sexp)
+  ;; TODO: improper tail patterns
+  (cl-every (lambda (x)
+              (and (not (mbe-ellipsis-p x))
+                   (mbe-pattern-p x)))
+            sexp))
 
 (defun mbe-pattern-variables (sexp)
   ;; TODO: duplicate checking
@@ -85,21 +95,17 @@
 
 (defun mbe-compile-pattern-match* (pattern match-var)
   (pcase pattern
-    (`(,p ,(pred mbe-ellipsis-p))
-     `(if (not (listp ,match-var))
-          (throw 'bad-match nil)
-        (while ,match-var
-          ,(let* ((mvar  (gensym match-var))
-                  (pvars (mbe-pattern-variables p))
-                  (gensyms (mapcar #'gensym pvars)))
-             `(let ,gensyms
-                (let ((,mvar (car ,match-var)) ,@pvars)
-                  ,(mbe-compile-pattern-match* p mvar)
-                  ,@(cl-map 'list (lambda (x y) `(setq ,x ,y)) gensyms pvars))
-                ;; TODO: build in reverse, then reverse
-                ,@(cl-map 'list (lambda (x y) `(setq ,x (append ,x (list ,y))))
-                          pvars gensyms)
-                (setq ,match-var (cdr ,match-var)))))))
+    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
+     ;; TODO: improper tail patterns
+     (let ((tail-len  (length rest))
+           (max-iters (gensym 'max-iters)))
+       `(if (not (listp ,match-var))
+            (throw 'bad-match nil)
+          (let* ((,max-iters (- (length ,match-var) ,tail-len)))
+            (if (< ,max-iters 0)
+                (throw 'bad-match nil)    ; TODO: more helpful error
+              ,(mbe-compile-ellipsis-pattern-match p match-var max-iters)
+              ,(mbe-compile-pattern-match* rest match-var))))))
     (`(,a . ,d)
      `(if (not (consp ,match-var))
           (throw 'bad-match nil)
@@ -118,6 +124,22 @@
      `(unless (equal ,match-var ,pattern) (throw 'bad-match nil)))
     (_ (throw 'bad-pattern pattern))))
 
+(defun mbe-compile-ellipsis-pattern-match (pattern match-var max-iters)
+  (let ((counter (gensym 'counter)))
+   `(let ((,counter 0))
+      (while (< ,counter ,max-iters)
+        ,(let* ((mvar  (gensym match-var))
+                (pvars (mbe-pattern-variables pattern))
+                (gensyms (mapcar #'gensym pvars)))
+           `(let ,gensyms
+              (let ((,mvar (car ,match-var)) ,@pvars)
+                ,(mbe-compile-pattern-match* pattern mvar)
+                ,@(cl-map 'list (lambda (x y) `(setq ,x ,y)) gensyms pvars))
+              ;; TODO: build in reverse, then reverse
+              ,@(cl-map 'list (lambda (x y) `(setq ,x (append ,x (list ,y))))
+                        pvars gensyms)
+              (setq ,match-var (cdr ,match-var))
+              (setq ,counter (+ ,counter 1))))))))
 
 (defmacro mbe-destructuring-let (pattern val &rest body)
   (let ((value (gensym)))

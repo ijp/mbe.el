@@ -29,7 +29,21 @@
   (mbe-destructuring-let
    ((a b ...) ...)
    `((a 1 "alpha" "beta") (b 2) (c 3 "gamma"))
-   (list a b))))                        ; 
+   (list a b))))
+
+(assert
+ (equal '(7 6 (5 4))
+  (mbe-destructuring-let
+   (a b c ... 3 2 1)
+   '(7 6 5 4 3 2 1)
+   (list a b c))))
+
+(assert
+ (equal '(1 2 (3 4 5 6 7) 8 9)
+  (mbe-destructuring-let
+   (a b c ... d e)
+   '(1 2 3 4 5 6 7 8 9)
+   (list a b c d e))))
 
 (defrule mylet (((var val) ...) body ...)
   (funcall (lambda (var ...) body ...) val ...))
