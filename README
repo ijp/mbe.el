@@ -1,0 +1,136 @@
+-*- Org -*-
+* Macros by Example
+** What is it?
+Macros by Example is a different style of macro writing for lisp,
+based on pattern/template pairs, rather than arbitrary procedures.
+
+** How do I use it?
+A few examples should suffice to get you started
+
+*** incf
+Suppose you want to write a macro similar to Common Lisp's =incf= that
+increments a variable (by an optional amount), you can write
+
+#+BEGIN_SRC emacs-lisp
+(mbe-defrules incf
+  ((var) (setq var (+ var 1)))
+  ((var by) (setq var (+ var by))))
+#+END_SRC
+
+The macro should be fairly self-explanatory. If you use the macro with
+one argument =foo=, i.e. =(incf foo)=, you will get the output =(setq
+foo (+ foo 1))=. If you use it with two, =(incf bar 42)=, you get the
+output =(setq bar (+ bar 42))=.
+
+*** push
+Similarly, you might try and write Elisp's =push= macro, like so
+
+#+BEGIN_SRC emacs-lisp
+(mbe-defrules push
+  ((newelt place) (setq place (cons newelt place))))
+#+END_SRC
+
+but you can also write it more tersely as
+
+#+BEGIN_SRC emacs-lisp
+(mbe-defrule push (newelt place)
+  (setq place (cons newelt place)))
+#+END_SRC
+
+*** let
+So far, everything we have done could be simply done with defmacro,
+but here we introduce a new character =...=.
+
+#+BEGIN_SRC emacs-lisp
+(mbe-defrule let (((var val) ...) body ...)
+  (funcall (lambda (var ...) body ...) val ...))
+#+END_SRC
+
+What do all these ellipses mean? Basically, they mean "match the
+preceding pattern zero or more times". In the pattern of =mbe-defrule=
+the first ellipsis follows the pattern =(var val)= and so matches zero
+or more lists of length two. Similarly, the second set of ellipsis
+matches zero or more forms.
+
+The ellipsis in the output forms is an implied iteration, where the
+form before the ellipsis is included as many times as is variables
+were matched in the pattern. For example, if you have the simple
+pattern =(a ...)= matching the list =(1 2 3)=, and the template
+=((a 1) ...)= you will get the output =((1 1) (2 1) (3 1))=.
+
+One thing to notice is that =var= and =val= do not appear together in
+the output, that is perfectly okay. If =((var val) ..)= matches
+=((1 2) (3 4) (5 6))=, then =(var ... val ...)= will give you the list
+=(1 3 5 2 4 6)=.
+
+*** aif
+Anaphora are a controversial subject among Lispers, with Schemers like
+myself arguing against them, but here is how you would a write
+so-called “anaphoric if” with =mbe-defrule=.
+
+#+BEGIN_SRC emacs-lisp
+(mbe-defrule aif (test consequent alternative)
+  (let ((it test))
+    (if it consequent alternative)))
+#+END_SRC
+
+The macro brings no new difficulties, but it is here for a reason. If
+you use scheme, you will expect that =it= variable to be renamed
+automatically by the macro system. This does *not* happen with
+=mbe-defrule=. If you do =(if 3 (* it it) 42)=, you will get =9=, just
+as if you wrote the obvious defmacro implementation.
+
+** How do I get it?
+There is no elisp package yet, so you'll have to do it the hard way
+I'm afraid.
+
+Clone the repository
+: git clone https://github.com/ijp/mbe.el
+
+Put the directory on your load path
+: (add-to-list 'load-path "$DOWNLOAD_DIR/mbe.el")
+
+Then require
+: (require 'mbe)
+
+** What license is it?
+GPL 3 or higher, like basically all Elisp code.
+
+** Why not just use defmacro?
+For simple macros, writing macros as pattern/template pairs can be
+much clearer than writing procedure code to output the same.
+
+** Why not just use defmacro and pcase?
+Macros by example has a nice feature that pcase doesn't have: ellipsis
+patterns, but it isn't just about pattern matching the input, as you
+also use ellipsis in the output.
+
+** I'm not writing a macro, can I still use mbe's pattern matching?
+Yes, you can use the =mbe-bind= macro.
+
+#+BEGIN_SRC emacs-lisp
+  (mbe-bind (a b c ... d) (list 1 2 3 4 5 6)
+    (list a b c d))
+  ;; (1 2 (3 4 5) 6)
+#+END_SRC
+
+** This looks like Scheme
+Yes, that's the point. The idea of Macros by Example was originally
+invented by Eugene Kohlbecker and Mitchell Wand for Scheme in 1984,
+and is an essential ingredient of the modern Scheme macro systems
+=syntax-rules= and =syntax-case=. You can find their technical report
+[[http://www.cs.indiana.edu/ftp/techreports/TR206.pdf][online]].
+
+** Are these macros hygienic?
+No, this code only implements pattern matching and template
+substitution.
+
+** Will you implement hygienic macros for Elisp?
+Maybe one day, but that is not part of the scope of this project.
+
+** Why did you implement this?
+On the #emacs irc channel Nic Ferrier was asking for an implementation
+of let* in terms of let, since GNU Emacs implements it in the C source
+code. I didn't provide him with one, but I got thinking about how much
+clearer it is to write in Scheme than Elisp. The rest, as they say, is
+history.
