@@ -1,4 +1,3 @@
--*- Org -*-
 * Macros by Example
 ** What is it?
 Macros by Example is a different style of macro writing for lisp,
