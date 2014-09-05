@@ -140,7 +140,7 @@
               (setq ,match-var (cdr ,match-var))
               (setq ,counter (+ ,counter 1))))))))
 
-(defmacro mbe-destructuring-let (pattern val &rest body)
+(defmacro mbe-bind (pattern val &rest body)
   (let ((value (gensym)))
     `(let ((,value ,val))
        (catch 'bad-match
@@ -187,10 +187,10 @@
          (list `(throw ',on-success
                        (cons 'progn ,(mbe-compile-template template levels))))))))
 
-(defmacro defrule (name pattern template)
-  `(defrules ,name (,pattern ,template)))
+(defmacro mbe-defrule (name pattern template)
+  `(mbe-defrules ,name (,pattern ,template)))
 
-(defmacro defrules (name &rest rest)
+(defmacro mbe-defrules (name &rest rest)
   (let ((rest*   (gensym 'rest))
         (success (gensym 'success)))
     `(defmacro ,name (&rest ,rest*)
