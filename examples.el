@@ -1,4 +1,7 @@
-(assert
+(require 'cl-lib)
+(require 'macro-rules)
+
+(cl-assert
  (equal
   '(1 2)
   (mbe-bind
@@ -6,7 +9,7 @@
    (list 1 2)
    (list a b))))
 
-(assert
+(cl-assert
  (equal
   '(1 (2 3 4 5))
   (mbe-bind
@@ -14,7 +17,7 @@
    (list 1 2 3 4 5)
    (list a b))))
 
-(assert
+(cl-assert
  (equal
   '((a b c) (1 2 3))
   (mbe-bind
@@ -23,7 +26,7 @@
    (list a b))))
 
 
-(assert
+(cl-assert
  (equal
   '((a b c) ((1 "alpha" "beta") (2) (3 "gamma")))
   (mbe-bind
@@ -31,28 +34,28 @@
    `((a 1 "alpha" "beta") (b 2) (c 3 "gamma"))
    (list a b))))
 
-(assert
+(cl-assert
  (equal '(7 6 (5 4))
   (mbe-bind
    (a b c ... 3 2 1)
    '(7 6 5 4 3 2 1)
    (list a b c))))
 
-(assert
+(cl-assert
  (equal '(1 2 (3 4 5 6 7) 8 9)
   (mbe-bind
    (a b c ... d e)
    '(1 2 3 4 5 6 7 8 9)
    (list a b c d e))))
 
-(assert
+(cl-assert
  (equal '(1 2 (3 4 5 6 7) 8 9 nil)
   (mbe-bind
    (a b c ... d e . f)
    '(1 2 3 4 5 6 7 8 9)
    (list a b c d e f))))
 
-(assert
+(cl-assert
  (equal '(1 2 (3 4 5 6) 7 8 9)
   (mbe-bind
    (a b c ... d e . f)
@@ -71,11 +74,11 @@
    (mylet ((var val))
      (mylet*-helper vars vals body))))
 
-(assert
+(cl-assert
  (equal 5
   (mylet ((a 1) (b 2)) (+ b b a))))
 
-(assert
+(cl-assert
  (equal
   '(2 3 1)
   (mylet* ((a 1)
