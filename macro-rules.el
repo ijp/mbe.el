@@ -20,12 +20,13 @@
 
 ;;; Commentary:
 
-;; Supports r5rs patterns, except for vector patterns i.e.
+;; Supports SRFI 46 / R6RS style patterns
 ;;
 ;;   (<pattern> ...)
 ;;   (<pattern> <pattern> ... . <pattern>)
 ;;   (<pattern> ... <pattern> <ellipsis>)
 ;;   (<pattern> ... <ellipsis> <pattern> ...)
+;;   (<pattern> ... <ellipsis> <pattern> ... . <pattern>)
 
 
 ;;; Code:
@@ -55,11 +56,12 @@
     (_ nil)))
 
 (defun mbe-tail-pattern-p (sexp)
-  ;; TODO: improper tail patterns
-  (cl-every (lambda (x)
-              (and (not (mbe-ellipsis-p x))
-                   (mbe-pattern-p x)))
-            sexp))
+  (pcase sexp
+    (`(,a . ,d)
+     (and (mbe-pattern-p a) (mbe-pattern-p d)))
+    ((pred symbolp) (not (mbe-ellipsis-p sexp)))
+    ((pred mbe-self-evaluating-p) t)
+    (_ nil)))
 
 (defun mbe-pattern-variables (sexp)
   ;; TODO: duplicate checking
@@ -96,16 +98,13 @@
 (defun mbe-compile-pattern-match* (pattern match-var)
   (pcase pattern
     (`(,p ,(pred mbe-ellipsis-p) . ,rest)
-     ;; TODO: improper tail patterns
-     (let ((tail-len  (length rest))
+     (let ((tail-conses  (safe-length rest))
            (max-iters (gensym 'max-iters)))
-       `(if (not (listp ,match-var))
-            (throw 'bad-match nil)
-          (let* ((,max-iters (- (length ,match-var) ,tail-len)))
-            (if (< ,max-iters 0)
-                (throw 'bad-match nil)    ; TODO: more helpful error
-              ,(mbe-compile-ellipsis-pattern-match p match-var max-iters)
-              ,(mbe-compile-pattern-match* rest match-var))))))
+       `(let* ((,max-iters (- (safe-length ,match-var) ,tail-conses)))
+          (if (< ,max-iters 0)
+              (throw 'bad-match nil)    ; TODO: more helpful error
+            ,(mbe-compile-ellipsis-pattern-match p match-var max-iters)
+            ,(mbe-compile-pattern-match* rest match-var)))))
     (`(,a . ,d)
      `(if (not (consp ,match-var))
           (throw 'bad-match nil)

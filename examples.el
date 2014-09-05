@@ -45,6 +45,20 @@
    '(1 2 3 4 5 6 7 8 9)
    (list a b c d e))))
 
+(assert
+ (equal '(1 2 (3 4 5 6 7) 8 9 nil)
+  (mbe-destructuring-let
+   (a b c ... d e . f)
+   '(1 2 3 4 5 6 7 8 9)
+   (list a b c d e f))))
+
+(assert
+ (equal '(1 2 (3 4 5 6) 7 8 9)
+  (mbe-destructuring-let
+   (a b c ... d e . f)
+   '(1 2 3 4 5 6 7 8 . 9)
+   (list a b c d e f))))
+
 (defrule mylet (((var val) ...) body ...)
   (funcall (lambda (var ...) body ...) val ...))
 
