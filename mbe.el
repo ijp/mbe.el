@@ -1,4 +1,4 @@
-;;; macro-rules.el --- Macros by Example
+;;; mbe.el --- Macros by Example
 
 ;; Copyright (C) 2014  Ian Price
 
@@ -205,5 +205,5 @@
                    rest)
          (error "No matching pattern for defrule" name rest)))))
 
-(provide 'macro-rules)
-;;; macro-rules.el ends here
+(provide 'mbe)
+;;; mbe.el ends here

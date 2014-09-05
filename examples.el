@@ -1,5 +1,5 @@
 (require 'cl-lib)
-(require 'macro-rules)
+(require 'mbe)
 
 (cl-assert
  (equal
