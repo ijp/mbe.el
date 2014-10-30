@@ -4,6 +4,7 @@
 
 ;; Author: Ian Price <ianprice90@googlemail.com>
 ;; Keywords: tools
+;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
