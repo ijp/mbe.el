@@ -36,7 +36,7 @@
 (require 'cl-lib)
 (require 'pcase)
 
-(defun mbe-self-evaluating-p (object)
+(defun mbe--self-evaluating-p (object)
   (or (numberp object)
       (stringp object)
       (booleanp object)
@@ -44,70 +44,70 @@
 
 (defvar mbe-ellipsis-object '...)
 
-(defun mbe-ellipsis-p (object)
+(defun mbe--ellipsis-p (object)
   (eql object mbe-ellipsis-object))
 
-(defun mbe-pattern-p (sexp)
+(defun mbe--pattern-p (sexp)
   (pcase sexp
-    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
-     (and (mbe-pattern-p p)
-          (mbe-tail-pattern-p rest)))
+    (`(,p ,(pred mbe--ellipsis-p) . ,rest)
+     (and (mbe--pattern-p p)
+          (mbe--tail-pattern-p rest)))
     (`(,a . ,d)
-     (and (mbe-pattern-p a) (mbe-pattern-p d)))
+     (and (mbe--pattern-p a) (mbe--pattern-p d)))
     ((pred symbolp) t)
-    ((pred mbe-self-evaluating-p) t)
+    ((pred mbe--self-evaluating-p) t)
     (_ nil)))
 
-(defun mbe-tail-pattern-p (sexp)
+(defun mbe--tail-pattern-p (sexp)
   (pcase sexp
     (`(,a . ,d)
-     (and (mbe-pattern-p a) (mbe-pattern-p d)))
-    ((pred symbolp) (not (mbe-ellipsis-p sexp)))
-    ((pred mbe-self-evaluating-p) t)
+     (and (mbe--pattern-p a) (mbe--pattern-p d)))
+    ((pred symbolp) (not (mbe--ellipsis-p sexp)))
+    ((pred mbe--self-evaluating-p) t)
     (_ nil)))
 
-(defun mbe-pattern-variables (sexp)
+(defun mbe--pattern-variables (sexp)
   ;; TODO: duplicate checking
   (pcase sexp
-    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
-     (append (mbe-pattern-variables p)
-             (mbe-pattern-variables rest)))
+    (`(,p ,(pred mbe--ellipsis-p) . ,rest)
+     (append (mbe--pattern-variables p)
+             (mbe--pattern-variables rest)))
     (`(,a . ,d)
-     (append (mbe-pattern-variables a) (mbe-pattern-variables d)))
+     (append (mbe--pattern-variables a) (mbe--pattern-variables d)))
     (`() nil)
     ((pred symbolp) (list sexp))
     (_ nil)))
 
-(defun mbe-levels (pattern)
-  (mbe-levels* pattern 0))
+(defun mbe--levels (pattern)
+  (mbe--levels* pattern 0))
 
-(defun mbe-levels* (pattern level)
+(defun mbe--levels* (pattern level)
   (pcase pattern
-    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
-     (append (mbe-levels* p (+ level 1))
-             (mbe-levels* rest level)))
+    (`(,p ,(pred mbe--ellipsis-p) . ,rest)
+     (append (mbe--levels* p (+ level 1))
+             (mbe--levels* rest level)))
     (`(,a . ,d)
-     (append (mbe-levels* a level)
-             (mbe-levels* d level)))
+     (append (mbe--levels* a level)
+             (mbe--levels* d level)))
     (`() nil)
     ((pred symbolp) `((,pattern . ,level)))
     (_ nil)))
 
-(defun mbe-compile-pattern-match (pattern match-var body)
-  `(let ,(mbe-pattern-variables pattern)
-     ,(mbe-compile-pattern-match* pattern match-var)
+(defun mbe--compile-pattern-match (pattern match-var body)
+  `(let ,(mbe--pattern-variables pattern)
+     ,(mbe--compile-pattern-match* pattern match-var)
      ,@body))
 
-(defun mbe-compile-pattern-match* (pattern match-var)
+(defun mbe--compile-pattern-match* (pattern match-var)
   (pcase pattern
-    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
+    (`(,p ,(pred mbe--ellipsis-p) . ,rest)
      (let ((tail-conses  (safe-length rest))
            (max-iters (gensym 'max-iters)))
        `(let* ((,max-iters (- (safe-length ,match-var) ,tail-conses)))
           (if (< ,max-iters 0)
               (throw 'bad-match nil)    ; TODO: more helpful error
-            ,(mbe-compile-ellipsis-pattern-match p match-var max-iters)
-            ,(mbe-compile-pattern-match* rest match-var)))))
+            ,(mbe--compile-ellipsis-pattern-match p match-var max-iters)
+            ,(mbe--compile-pattern-match* rest match-var)))))
     (`(,a . ,d)
      `(if (not (consp ,match-var))
           (throw 'bad-match nil)
@@ -115,27 +115,27 @@
                (m2 (gensym match-var)))
            `(let ((,m1 (car ,match-var))
                   (,m2 (cdr ,match-var)))
-              ,(mbe-compile-pattern-match* a m1)
-              ,(mbe-compile-pattern-match* d m2)))))
+              ,(mbe--compile-pattern-match* a m1)
+              ,(mbe--compile-pattern-match* d m2)))))
     (`()
      `(when ,match-var (throw 'bad-match nil)))
     ((pred symbolp)
      `(setq ,pattern ,match-var))
-    ((pred mbe-self-evaluating-p)
+    ((pred mbe--self-evaluating-p)
      ;; TODO: make equality configurable?
      `(unless (equal ,match-var ,pattern) (throw 'bad-match nil)))
     (_ (throw 'bad-pattern pattern))))
 
-(defun mbe-compile-ellipsis-pattern-match (pattern match-var max-iters)
+(defun mbe--compile-ellipsis-pattern-match (pattern match-var max-iters)
   (let ((counter (gensym 'counter)))
    `(let ((,counter 0))
       (while (< ,counter ,max-iters)
         ,(let* ((mvar  (gensym match-var))
-                (pvars (mbe-pattern-variables pattern))
+                (pvars (mbe--pattern-variables pattern))
                 (gensyms (mapcar #'gensym pvars)))
            `(let ,gensyms
               (let ((,mvar (car ,match-var)) ,@pvars)
-                ,(mbe-compile-pattern-match* pattern mvar)
+                ,(mbe--compile-pattern-match* pattern mvar)
                 ,@(cl-map 'list (lambda (x y) `(setq ,x ,y)) gensyms pvars))
               ;; TODO: build in reverse, then reverse
               ,@(cl-map 'list (lambda (x y) `(setq ,x (append ,x (list ,y))))
@@ -147,48 +147,48 @@
   (let ((value (gensym)))
     `(let ((,value ,val))
        (catch 'bad-match
-         ,(mbe-compile-pattern-match pattern value body)))))
+         ,(mbe--compile-pattern-match pattern value body)))))
 
 
-(defun mbe-constrain-levels (levels form)
-  (let ((vars (mbe-pattern-variables form)))
-    (mapcar #'mbe-adjust-level
+(defun mbe--constrain-levels (levels form)
+  (let ((vars (mbe--pattern-variables form)))
+    (mapcar #'mbe--adjust-level
             (cl-remove-if-not (lambda (pair) (member (car pair) vars))
                               levels))))
-(defun mbe-adjust-level (pair)
+(defun mbe--adjust-level (pair)
   (cons (car pair) (- (cdr pair) 1)))
 
-(defun mbe-compile-template (pattern levels)
+(defun mbe--compile-template (pattern levels)
   (pcase pattern
-    (`(,p ,(pred mbe-ellipsis-p) . ,rest)
-     (let* ((levels*  (mbe-constrain-levels levels p))
+    (`(,p ,(pred mbe--ellipsis-p) . ,rest)
+     (let* ((levels*  (mbe--constrain-levels levels p))
             (ids      (mapcar #'car levels*)))
        ;; TODO: check lengths
        (unless ids (throw 'bad-ellipsis))
        `(append (cl-mapcar (lambda ,ids
-                             ,(mbe-compile-template p levels*))
+                             ,(mbe--compile-template p levels*))
                            ,@ids)
-                ,(mbe-compile-template rest levels))))
+                ,(mbe--compile-template rest levels))))
     (`(,a . ,d)
-     `(cons ,(mbe-compile-template a levels)
-            ,(mbe-compile-template d levels)))
+     `(cons ,(mbe--compile-template a levels)
+            ,(mbe--compile-template d levels)))
     (`() nil)
     ((pred symbolp)
      (let ((level (cdr (assoc pattern levels))))
        (cond ((not level) (list 'quote pattern))
              ((and level (= level 0)) pattern)
              (else (throw 'not-enough-ellipsis)))))
-    ((pred mbe-self-evaluating-p) pattern)
+    ((pred mbe--self-evaluating-p) pattern)
     (_ (throw 'bad-pattern pattern))))
 
-(defun mbe-make-defrule (var pattern template on-success)
-  (let ((levels (mbe-levels pattern)))
+(defun mbe--make-defrule (var pattern template on-success)
+  (let ((levels (mbe--levels pattern)))
     `(catch 'bad-match
-       ,(mbe-compile-pattern-match
+       ,(mbe--compile-pattern-match
          pattern
          var
          (list `(throw ',on-success
-                       (cons 'progn ,(mbe-compile-template template levels))))))))
+                       (cons 'progn ,(mbe--compile-template template levels))))))))
 
 (defmacro mbe-defrule (name pattern template)
   `(mbe-defrules ,name (,pattern ,template)))
@@ -201,7 +201,7 @@
          ,@(mapcar (lambda (clause)
                      (let ((pattern  (car clause))
                            (template (cdr clause)))
-                       (mbe-make-defrule rest*
+                       (mbe--make-defrule rest*
                                          pattern
                                          template
                                          success)))
