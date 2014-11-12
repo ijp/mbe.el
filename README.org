@@ -80,8 +80,11 @@ automatically by the macro system. This does *not* happen with
 as if you wrote the obvious defmacro implementation.
 
 ** How do I get it?
-There is no elisp package yet, so you'll have to do it the hard way
-I'm afraid.
+If you have either the marmalade or melpa repositories, you can
+install mbe with
+: M-x package-install mbe
+
+Otherwise, you can do it the old fashioned way.
 
 Clone the repository
 : git clone https://github.com/ijp/mbe.el
