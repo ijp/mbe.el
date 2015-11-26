@@ -102,7 +102,7 @@
   (pcase pattern
     (`(,p ,(pred mbe--ellipsis-p) . ,rest)
      (let ((tail-conses  (safe-length rest))
-           (max-iters (gensym 'max-iters)))
+           (max-iters (cl-gensym 'max-iters)))
        `(let* ((,max-iters (- (safe-length ,match-var) ,tail-conses)))
           (if (< ,max-iters 0)
               (throw 'bad-match nil)    ; TODO: more helpful error
@@ -111,8 +111,8 @@
     (`(,a . ,d)
      `(if (not (consp ,match-var))
           (throw 'bad-match nil)
-        ,(let ((m1 (gensym match-var))
-               (m2 (gensym match-var)))
+        ,(let ((m1 (cl-gensym match-var))
+               (m2 (cl-gensym match-var)))
            `(let ((,m1 (car ,match-var))
                   (,m2 (cdr ,match-var)))
               ,(mbe--compile-pattern-match* a m1)
@@ -127,12 +127,12 @@
     (_ (throw 'bad-pattern pattern))))
 
 (defun mbe--compile-ellipsis-pattern-match (pattern match-var max-iters)
-  (let ((counter (gensym 'counter)))
+  (let ((counter (cl-gensym 'counter)))
    `(let ((,counter 0))
       (while (< ,counter ,max-iters)
-        ,(let* ((mvar  (gensym match-var))
+        ,(let* ((mvar  (cl-gensym match-var))
                 (pvars (mbe--pattern-variables pattern))
-                (gensyms (mapcar #'gensym pvars)))
+                (gensyms (mapcar #'cl-gensym pvars)))
            `(let ,gensyms
               (let ((,mvar (car ,match-var)) ,@pvars)
                 ,(mbe--compile-pattern-match* pattern mvar)
@@ -144,7 +144,7 @@
               (setq ,counter (+ ,counter 1))))))))
 
 (defmacro mbe-bind (pattern val &rest body)
-  (let ((value (gensym)))
+  (let ((value (cl-gensym)))
     `(let ((,value ,val))
        (catch 'bad-match
          ,(mbe--compile-pattern-match pattern value body)))))
@@ -164,7 +164,7 @@
      (let* ((levels*  (mbe--constrain-levels levels p))
             (ids      (mapcar #'car levels*)))
        ;; TODO: check lengths
-       (unless ids (throw 'bad-ellipsis))
+       (unless ids (throw 'bad-ellipsis nil))
        `(append (cl-mapcar (lambda ,ids
                              ,(mbe--compile-template p levels*))
                            ,@ids)
@@ -177,7 +177,7 @@
      (let ((level (cdr (assoc pattern levels))))
        (cond ((not level) (list 'quote pattern))
              ((and level (= level 0)) pattern)
-             (else (throw 'not-enough-ellipsis)))))
+             (t (throw 'not-enough-ellipsis nil)))))
     ((pred mbe--self-evaluating-p) pattern)
     (_ (throw 'bad-pattern pattern))))
 
@@ -194,8 +194,8 @@
   `(mbe-defrules ,name (,pattern ,template)))
 
 (defmacro mbe-defrules (name &rest rest)
-  (let ((rest*   (gensym 'rest))
-        (success (gensym 'success)))
+  (let ((rest*   (cl-gensym 'rest))
+        (success (cl-gensym 'success)))
     `(defmacro ,name (&rest ,rest*)
        (catch ',success
          ,@(mapcar (lambda (clause)
