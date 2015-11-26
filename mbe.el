@@ -164,7 +164,7 @@
      (let* ((levels*  (mbe--constrain-levels levels p))
             (ids      (mapcar #'car levels*)))
        ;; TODO: check lengths
-       (unless ids (throw 'bad-ellipsis))
+       (unless ids (throw 'bad-ellipsis nil))
        `(append (cl-mapcar (lambda ,ids
                              ,(mbe--compile-template p levels*))
                            ,@ids)
@@ -177,7 +177,7 @@
      (let ((level (cdr (assoc pattern levels))))
        (cond ((not level) (list 'quote pattern))
              ((and level (= level 0)) pattern)
-             (else (throw 'not-enough-ellipsis)))))
+             (else (throw 'not-enough-ellipsis nil)))))
     ((pred mbe--self-evaluating-p) pattern)
     (_ (throw 'bad-pattern pattern))))
 
