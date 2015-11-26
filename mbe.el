@@ -177,7 +177,7 @@
      (let ((level (cdr (assoc pattern levels))))
        (cond ((not level) (list 'quote pattern))
              ((and level (= level 0)) pattern)
-             (else (throw 'not-enough-ellipsis nil)))))
+             (t (throw 'not-enough-ellipsis nil)))))
     ((pred mbe--self-evaluating-p) pattern)
     (_ (throw 'bad-pattern pattern))))
 
